@@ -6,12 +6,17 @@ from dotenv import load_dotenv
 import uuid
 import os
 import datetime
-from inngest.experimental import ai
+#from inngest.experimental import ai
 from data_loader import load_and_chunk_pdf, embed_texts
 from vector_db import QdrantStorage
 from custom_types import RAGQueryResult, RAGUpsertResult,RAGChunkAndSrc,RAGSearchResult
+from google import genai
 
 load_dotenv()
+
+gemini_client=genai.Client(
+api_key=os.getenv("GEMINI_API_KEY"),
+)
 
 inngest_client = inngest.Inngest(
     app_id="rag_app",
@@ -23,7 +28,7 @@ inngest_client = inngest.Inngest(
     fn_id="RAG: Inngest PDF",
     trigger=inngest.TriggerEvent(event="rag/ingest_pdf"),
     throttle=inngest.Throttle(
-        count=2, period=datetime.timedelta(minutes=1)
+        limit=2, period=datetime.timedelta(minutes=1)
     ),
     rate_limit=inngest.RateLimit(
         limit=1,
@@ -74,24 +79,34 @@ async def rag_query_pdf_ai(ctx:inngest.Context):
         "Answer concisely using the context above."
     )
 
-    adapter = ai.openai.Adapter(
-        auth_key=os.getenv("OPENAI_API_KEY"),
-        model="gpt-4o-mini"
-    )
+    # adapter = ai.google.Adapter(
+    #     auth_key=os.getenv("OPENAI_API_KEY"),
+    #     model="gemini-2.5-flash"
+    # )
 
-    res = await ctx.step.ai.infer(
-        "llm-answer",
-        adapter=adapter,
-        body={
-            "max_tokens": 1024,
-            "temperature": 0.2,
-            "messages": [
-                {"role": "system", "content": "You answer questions using only the provided context."},
-                {"role": "user", "content": user_content}
-            ]
-        }
+    # res = await ctx.step.ai.infer(
+    #     "llm-answer",
+    #     adapter=adapter,
+    #     body={
+    #         "max_output_tokens": 1024,
+    #         "temperature": 0.2,
+    #         "messages": [
+    #             {"role": "system", "content": "You answer questions using only the provided context."},
+    #             {"role": "user", "content": user_content}
+    #         ]
+    #     }
+    # )
+    # answer = res["choices"][0]["message"]["content"].strip()
+
+    res = gemini_client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=[
+            "You answer questions using only the provided context.",
+            user_content
+        ]
     )
-    answer = res["choices"][0]["message"]["content"].strip()
+    answer=res.text
+
     return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts)}
 
 
