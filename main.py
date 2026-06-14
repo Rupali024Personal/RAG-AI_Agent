@@ -21,7 +21,9 @@ api_key=os.getenv("GEMINI_API_KEY"),
 inngest_client = inngest.Inngest(
     app_id="rag_app",
     logger=logging.getLogger("uvicorn"),
-    is_production=False,
+    is_production=os.getenv("IS_PRODUCTION"),
+    signing_key=os.getenv("INNGEST_SIGNING_KEY"),
+    event_key=os.getenv("INNGEST_EVENT_KEY"),
     serializer=inngest.PydanticSerializer()
 )
 @inngest_client.create_function(

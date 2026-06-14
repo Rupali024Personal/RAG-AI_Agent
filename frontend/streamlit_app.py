@@ -12,6 +12,12 @@ load_dotenv()
 
 st.set_page_config(page_title="RAG Ingest PDF", page_icon="📄", layout="centered")
 
+BACKEND_URL = "" # for local it will be http://127.0.0.1:8000
+
+# persistent chat history in session state
+if "history" not in st.session_state:
+    st.session_state["history"] = []
+
 
 @st.cache_resource
 def get_inngest_client() -> inngest.Inngest:
@@ -19,7 +25,7 @@ def get_inngest_client() -> inngest.Inngest:
 
 
 def save_uploaded_pdf(file) -> Path:
-    uploads_dir = Path("uploads")
+    uploads_dir = Path("../uploads")
     uploads_dir.mkdir(parents=True, exist_ok=True)
     file_path = uploads_dir / file.name
     file_bytes = file.getbuffer()
@@ -45,16 +51,15 @@ uploaded = st.file_uploader("Choose a PDF", type=["pdf"], accept_multiple_files=
 
 if uploaded is not None:
     with st.spinner("Uploading and triggering ingestion..."):
-        path = save_uploaded_pdf(uploaded)
-        # Kick off the event and block until the send completes
-        asyncio.run(send_rag_ingest_event(path))
-        # Small pause for user feedback continuity
-        time.sleep(0.3)
-    st.success(f"Triggered ingestion for: {path.name}")
-    st.caption("You can upload another PDF if you like.")
-
+        files= {"file":(uploaded.name,uploaded.getvalue(),"application/pdf")}
+        try:
+            response = requests.post(f"{BACKEND_URL}/upload", files=files)
+            response.raise_for_status()
+            st.success(f"Successfully uploaded {uploaded.name}")
+        except Exception as e:
+            st.error(f"Failed to upload file to backend ({e})")
 st.divider()
-st.title("Ask a question about your PDFs")
+st.title("Ask a question about your PDF")
 
 
 async def send_rag_query_event(question: str, top_k: int) -> None:
@@ -117,9 +122,36 @@ with st.form("rag_query_form"):
             answer = output.get("answer", "")
             sources = output.get("sources", [])
 
-        st.subheader("Answer")
-        st.write(answer or "(No answer)")
-        if sources:
-            st.caption("Sources")
-            for s in sources:
-                st.write(f"- {s}")
+            #Save historical records into state
+            st.session_state.history.append(
+                {
+                    "question": question,
+                    "answer": answer,
+                    "sources": sources,
+                }
+            )
+if len(st.session_state.history) > 0:
+    st.divider()
+    # Create 2 columns to align heading and clear button
+    col1, col2 = st.columns([3,1])
+    with col1:
+        if len(st.session_state.history) == 1:
+            st.subheader("Results")
+        st.subheader("Query History")
+    with col2:
+        if st.button("Clear History",type="secondary",use_container_width=True):
+            st.session_state.history.clear()
+            st.rerun()
+        # st.subheader("Query History")
+        # Reverse iteration to display the latest updates on top
+    for idx,item in enumerate(reversed(st.session_state.history)):
+        with st.expander(f"**Question**:{item['question']}",expanded=(idx==0)):
+            st.markdown(f"**Answer:** {item['answer']}")
+            if item['sources']:
+                st.caption(f"Sources:{', '.join(item['sources'])}")
+        # st.subheader("Answer")
+        # st.write(answer or "(No answer)")
+        # if sources:
+        #     st.caption("Sources")
+        #     for s in sources:
+        #         st.write(f"- {s}")
