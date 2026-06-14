@@ -1,5 +1,8 @@
 import logging
-from fastapi import FastAPI
+import shutil
+from pathlib import Path
+
+from fastapi import FastAPI, UploadFile, File
 import inngest
 import inngest.fast_api
 from dotenv import load_dotenv
@@ -113,5 +116,27 @@ async def rag_query_pdf_ai(ctx:inngest.Context):
 
 
 app = FastAPI()
+
+@app.post("/upload")
+async def upload_pdf(file: UploadFile = File(...)):
+    uploads_dir=Path("/tmp/uploads")
+    uploads_dir.mkdir(parents=True,exist_ok=True)
+
+    file_path=uploads_dir/f"{uuid.uuid4()}_{file.filename}"
+
+    with file_path.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    await inngest_client.send(
+        inngest.Event(
+            name="rag_query_pdf_ai",
+            data={
+                "pdf_path":str(file_path.resolve()),
+                "source_id":file.filename,
+            },
+        )
+    )
+    return {"status":"In-progress","message":"Inngest triggered in background."}
+
+
 
 inngest.fast_api.serve(app,inngest_client,[rag_ingest_pdf,rag_query_pdf_ai])
