@@ -12,6 +12,9 @@ load_dotenv()
 
 st.set_page_config(page_title="RAG Ingest PDF", page_icon="📄", layout="centered")
 
+if "question_input" not in st.session_state:
+    st.session_state["question_input"] = ""
+
 BACKEND_URL = "https://rag-ai-agent-exbs.onrender.com" # for local it will be http://127.0.0.1:8000
 
 # persistent chat history in session state
@@ -109,7 +112,7 @@ def wait_for_run_output(event_id: str, timeout_s: float = 120.0, poll_interval_s
 
 
 with st.form("rag_query_form"):
-    question = st.text_input("Your question")
+    question = st.text_input("Your question",key="question_input")
     top_k = st.number_input("How many chunks to retrieve", min_value=1, max_value=20, value=5, step=1)
     submitted = st.form_submit_button("Ask")
 
@@ -138,6 +141,8 @@ with st.form("rag_query_form"):
                         "sources": result.get("sources",[]),
                     }
                 )
+                st.session_state.question_input = ""
+                st.rerun()
             except Exception as e:
                 st.error(str(e))
 
@@ -159,7 +164,7 @@ if len(st.session_state.history) > 0:
         # st.subheader("Query History")
         # Reverse iteration to display the latest updates on top
     for idx,item in enumerate(reversed(st.session_state.history)):
-        with st.expander(f"**Question**:{item['question']}",expanded=(idx==0)):
+        with st.expander(f"**Question:** {item['question']}",expanded=(idx==0)):
             st.markdown(f"**Answer:** {item['answer']}")
             if item['sources']:
                 st.caption(f"Sources:{', '.join(item['sources'])}")
