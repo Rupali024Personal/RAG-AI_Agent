@@ -108,8 +108,8 @@ def wait_for_run_output(event_id: str, timeout_s: float = 120.0, poll_interval_s
         time.sleep(poll_interval_s)
 
 
-with st.form("rag_query_form"):
-    question = st.text_input("Your question",key="question_input")
+with st.form("rag_query_form",clear_on_submit=True):
+    question = st.text_input("Your question")
     top_k = st.number_input("How many chunks to retrieve", min_value=1, max_value=20, value=5, step=1)
     submitted = st.form_submit_button("Ask")
 
@@ -138,8 +138,6 @@ with st.form("rag_query_form"):
                         "sources": result.get("sources",[]),
                     }
                 )
-                st.session_state.question_input = ""
-                st.rerun()
             except Exception as e:
                 st.error(str(e))
 
