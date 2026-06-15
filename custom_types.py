@@ -15,5 +15,6 @@ class RAGQueryResult(pydantic.BaseModel):
     answer:str | None=None
     question:str
     sources:list[str]=[]
+    top_k:int=1
     num_contexts:int=0
 
