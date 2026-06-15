@@ -150,7 +150,8 @@ if len(st.session_state.history) > 0:
     with col1:
         if len(st.session_state.history) == 1:
             st.subheader("Results")
-        st.subheader("Query History")
+        else:
+            st.subheader("Query History")
     with col2:
         if st.button("Clear History",type="secondary",use_container_width=True):
             st.session_state.history.clear()
