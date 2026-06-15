@@ -2,7 +2,8 @@ import logging
 import shutil
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile, File
+from click import prompt
+from fastapi import FastAPI, UploadFile, File, HTTPException
 import inngest
 import inngest.fast_api
 from dotenv import load_dotenv
@@ -128,7 +129,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
     await inngest_client.send(
         inngest.Event(
-            name="rag_query_pdf_ai",
+            name="rag/inngest_pdf",
             data={
                 "pdf_path":str(file_path.resolve()),
                 "source_id":file.filename,
@@ -136,6 +137,48 @@ async def upload_pdf(file: UploadFile = File(...)):
         )
     )
     return {"status":"In-progress","message":"Inngest triggered in background."}
+
+@app.post("/query")
+async def query_pdf(request: RAGQueryResult):
+    try:
+        query_vector=embed_texts([request.question])[0]
+        store=QdrantStorage()
+        found=store.search(query_vector,request.top_k)
+
+        contexts=found["contexts"]
+        sources=found["sources"]
+
+        context_block ="\n\n".join(
+            f"- {c}"
+            for c in contexts
+        )
+        prompt= f"""
+        USE ONLY the supplied context.
+        
+        Context:
+        {context_block}
+        
+        Question:
+        {request.question}
+        
+        Answer:
+        """
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+        return {
+            "answer": response.text,
+            "sources": sources,
+            "num_contexts": len(contexts),
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e),
+        )
+
+
 
 
 

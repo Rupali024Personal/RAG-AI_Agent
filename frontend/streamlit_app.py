@@ -115,22 +115,34 @@ with st.form("rag_query_form"):
 
     if submitted and question.strip():
         with st.spinner("Sending event and generating answer..."):
-            # Fire-and-forget event to Inngest for observability/workflow
-            #loop=asyncio.get_event_loop()
-            event_id = send_rag_query_event(question.strip(), int(top_k))
-            # Poll the local Inngest API for the run's output
-            output = wait_for_run_output(event_id)
-            answer = output.get("answer", "")
-            sources = output.get("sources", [])
+            try:
+                response=requests.post(
+                    f"{BACKEND_URL}/query",
+                    json={
+                        "question": question,
+                        "top_k": top_k,
+                    },
+                    timeout=120,
+                )
+                response.raise_for_status()
+                result=response.json()
 
-            #Save historical records into state
-            st.session_state.history.append(
-                {
-                    "question": question,
-                    "answer": answer,
-                    "sources": sources,
-                }
-            )
+                # Save historical records into state
+                st.session_state.history.append(
+                    {
+                        "question": question,
+                        "answer": result.get(
+                            "answer",""
+                        ),
+
+                        "sources": result.get("sources",[]),
+                    }
+                )
+            except Exception as e:
+                st.error(str(e))
+
+
+
 if len(st.session_state.history) > 0:
     st.divider()
     # Create 2 columns to align heading and clear button
