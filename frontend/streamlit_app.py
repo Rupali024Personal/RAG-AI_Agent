@@ -12,9 +12,6 @@ load_dotenv()
 
 st.set_page_config(page_title="RAG Ingest PDF", page_icon="📄", layout="centered")
 
-if "question_input" not in st.session_state:
-    st.session_state["question_input"] = ""
-
 BACKEND_URL = "https://rag-ai-agent-exbs.onrender.com" # for local it will be http://127.0.0.1:8000
 
 # persistent chat history in session state
