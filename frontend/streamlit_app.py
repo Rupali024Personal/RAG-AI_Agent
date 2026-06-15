@@ -116,7 +116,7 @@ with st.form("rag_query_form"):
     if submitted and question.strip():
         with st.spinner("Sending event and generating answer..."):
             # Fire-and-forget event to Inngest for observability/workflow
-            loop=asyncio.get_event_loop()
+            #loop=asyncio.get_event_loop()
             event_id = send_rag_query_event(question.strip(), int(top_k))
             # Poll the local Inngest API for the run's output
             output = wait_for_run_output(event_id)
